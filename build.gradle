@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+    id'application'
+    id'com.github.johnrengelman.shadow' version '6.0.0'
+}
+
+mainClassName = 'net.smierdzi.dbb'
+group 'net.smierdzi'
+version '1.0-SNAPSHOT'
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    implementation 'net.dv8tion:JDA:4.2.0_168'
+    implementation 'org.slf4j:slf4j-nop:1.7.30'
+    implementation 'com.pi4j:pi4j-core:1.2'
+}
+
+compileJava.options.encoding = 'UTF-8'
