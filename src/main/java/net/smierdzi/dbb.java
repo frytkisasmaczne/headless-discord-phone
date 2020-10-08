@@ -16,10 +16,7 @@ package net.smierdzi;
  * limitations under the License.
  */
 
-import com.pi4j.io.gpio.GpioController;
-import com.pi4j.io.gpio.GpioFactory;
-import com.pi4j.io.gpio.GpioPinDigitalInput;
-import com.pi4j.io.gpio.RaspiPin;
+import com.pi4j.io.gpio.*;
 import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -28,7 +25,9 @@ import net.dv8tion.jda.api.audio.AudioReceiveHandler;
 import net.dv8tion.jda.api.audio.AudioSendHandler;
 import net.dv8tion.jda.api.audio.CombinedAudio;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.events.guild.voice.GuildVoiceLeaveEvent;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
+import net.dv8tion.jda.api.events.message.priv.PrivateMessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -58,13 +57,15 @@ public class dbb extends ListenerAdapter
     public static TextChannel fourdottextchannel;
 
     public static boolean connected = false;
+    public static boolean ringing = false;
 
     public static final GpioController gpio = GpioFactory.getInstance();
-    public static final GpioPinDigitalInput input00 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00);
-    public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_02);
-    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);
-    public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);
-    public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05);
+    public static final GpioPinDigitalInput input00 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00);//button for disconnecting, the one usually under the earpiece
+    public static final GpioPinDigitalOutput input01 = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_01);//buzzer for signaling incoming connnection
+    public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_02);//for calling some user
+    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//free
+    public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);//eeee
+    public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05);//e... gonna be allocated for starting connections with other users
 
     public static void main(String[] args) throws LoginException, InterruptedException {
         if (args.length == 0)
@@ -74,26 +75,11 @@ public class dbb extends ListenerAdapter
         }
         String token = args[0];
 
-        input00.addListener((GpioPinListenerDigital) event -> {
-            if(event.getState().isHigh() && connected) {
-                connected = false;
-                disconnectvc();
-            }
-        });
-
-        input02.addListener((GpioPinListenerDigital) event -> {
-            if(event.getState().isHigh() && !connected){
-                connected = true;
-                callPerson(nggyu);
-            }
-        });
-
-
-
         // We only need 2 gateway intents enabled for this example:
         EnumSet<GatewayIntent> intents = EnumSet.of(
                 // We need messages in guilds to accept commands from users
                 GatewayIntent.GUILD_MESSAGES,
+                GatewayIntent.DIRECT_MESSAGES,
                 // We need voice states to connect to the voice channel
                 GatewayIntent.GUILD_VOICE_STATES
         );
@@ -101,24 +87,83 @@ public class dbb extends ListenerAdapter
         // Start the JDA session with default mode (voice member cache)
         jda = JDABuilder.createDefault(token, intents)         // Use provided token from command line arguments
                 .addEventListeners(new dbb())  // Start listening with this listener
-                .setActivity(Activity.listening("ciebie")) // Inform users that we are jammin' it out
+                .setActivity(Activity.listening("nikogo")) // Inform users that we are jammin' it out
                 .setStatus(OnlineStatus.ONLINE)     // Please don't disturb us while we're jammin'
                 .enableCache(CacheFlag.VOICE_STATE)         // Enable the VOICE_STATE cache to find a user's connected voice channel
                 .build();                                   // Login with these options
         jda.awaitReady();
         fourdotvc = jda.getVoiceChannelById(fourdotvcid);
         fourdottextchannel = jda.getTextChannelById(fourdottextchannelid);
+
+        setup_input_gpio();
+    }
+
+    public static void setup_input_gpio() {
+        input00.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isHigh() && connected) {
+                connected = false;
+                disconnectvc();
+            } else if(event.getState().isLow() && ringing){
+                ring(false);
+                connectvc();
+            }
+        });
+        input02.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isHigh() && !connected){
+                connected = true;
+                callPerson(nggyu);
+            }
+        });
+    }
+
+    public static void ring(boolean rink){
+        if(rink){
+            input01.setState(PinState.HIGH);
+        }else{
+            input01.setState(PinState.LOW);
+        }
+        ringing = rink;
     }
 
     public static void callPerson(String userID){
+        connectvc();
+        sendPM(userID, "halo, chodź porozmawiać");
+    }
+
+    public static void connectvc(){
         connectTo(fourdotvc);
-        fourdottextchannel.sendMessage("halo <@"+userID+">").queue();
+        jda.getPresence().setActivity(Activity.listening(audioManager.getConnectedChannel().getMembers().get(0).getUser().getName()));
     }
 
     public static void disconnectvc(){
         audioManager.closeAudioConnection();
         handler.close();
         handler = null;
+        jda.getPresence().setActivity(Activity.listening("nikogo"));
+    }
+
+    @Override
+    public void onPrivateMessageReceived(PrivateMessageReceivedEvent event){
+        if(event.getMessage().getContentRaw().toLowerCase().contains("halo")){
+            ring(true);
+        }
+    }
+
+    public static void sendPM(String userID, String message){
+        if(jda.getUserById(userID).hasPrivateChannel()){
+            jda.getPrivateChannelById(userID).sendMessage(message).queue();
+        }else{
+            jda.openPrivateChannelById(userID)
+                .flatMap(channel -> channel.sendMessage(message))
+                .queue();
+        }
+    }
+
+    @Override
+    public void onGuildVoiceLeave(GuildVoiceLeaveEvent event){
+        if(event.getChannelLeft().getId().equals(fourdotvcid) && ringing){
+            ring(false);
+        }
     }
 
     @Override
