@@ -48,6 +48,7 @@ public class dbb extends ListenerAdapter
     public static final String fourdotguildid = "752987166337925170";
 
     public static final String nggyu = "396307639669358598";
+    public static final String legmun = "691325469257367614";
 
     static EchoHandler handler;
     static JDA jda;
@@ -63,8 +64,8 @@ public class dbb extends ListenerAdapter
     public static final GpioPinDigitalInput input00 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00);//button for disconnecting, the one usually under the earpiece
     public static final GpioPinDigitalOutput input01 = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_01);//buzzer for signaling incoming connnection
     public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_02);//for calling some user
-    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//free
-    public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);//eeee
+    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//for calling another user
+    public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);//free
     public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05);//e... gonna be allocated for starting connections with other users
 
     public static void main(String[] args) throws LoginException, InterruptedException {
@@ -112,6 +113,12 @@ public class dbb extends ListenerAdapter
             if(event.getState().isHigh() && !connected){
                 connected = true;
                 callPerson(nggyu);
+            }
+        });
+        input03.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isHigh() && !connected){
+                connected = true;
+                callPerson(legmun);
             }
         });
     }
