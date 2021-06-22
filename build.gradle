@@ -9,11 +9,15 @@ group 'net.smierdzi'
 version '1.0-SNAPSHOT'
 
 repositories {
-    jcenter()
+    mavenCentral()
+    maven {
+        name 'm2-dv8tion'
+        url 'https://m2.dv8tion.net/releases'
+    }
 }
 
 dependencies {
-    implementation 'net.dv8tion:JDA:4.2.0_168'
+    implementation("net.dv8tion:JDA:4.3.0_277")
     implementation 'org.slf4j:slf4j-nop:1.7.30'
     implementation 'com.pi4j:pi4j-core:1.2'
 }

@@ -97,6 +97,7 @@ public class dbb extends ListenerAdapter
         fourdottextchannel = jda.getTextChannelById(fourdottextchannelid);
 
         setup_input_gpio();
+        System.out.println("ready");
     }
 
     public static void setup_input_gpio() {
@@ -134,7 +135,13 @@ public class dbb extends ListenerAdapter
 
     public static void callPerson(String userID){
         connectvc();
-        sendPM(userID, "halo, chodź porozmawiać");
+//        sendPM(userID, "halo");
+        String name = "halo";
+        try{
+            name += jda.getUserById(userID).getName();
+        }catch(NullPointerException ignored){}
+
+        announce(name);
     }
 
     public static void connectvc(){
@@ -163,6 +170,12 @@ public class dbb extends ListenerAdapter
             jda.openPrivateChannelById(userID)
                 .flatMap(channel -> channel.sendMessage(message))
                 .queue();
+        }
+    }
+
+    public static void announce(String message){
+        if (fourdottextchannel.sendMessage(message).isEmpty()){
+            System.out.println("ERROR send msg:"+message);
         }
     }
 
@@ -233,8 +246,10 @@ public class dbb extends ListenerAdapter
                 targetDataLine.open(sentAudioFormat, packetSize);
                 System.out.println(targetDataLine.getFormat());
                 targetDataLine.start();
+                System.out.println("intialized audio devices?");
                 targetDataLine.read(tempbuffer, 0, tempbuffer.length);
                 System.out.println(sentAudioFormat);
+
 
 
             }
