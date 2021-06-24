@@ -32,6 +32,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
+import org.jetbrains.annotations.NotNull;
 
 import javax.security.auth.login.LoginException;
 import javax.sound.sampled.*;
@@ -47,7 +48,10 @@ public class dbb extends ListenerAdapter
     public static final String fourdottextchannelid = "752987166337925173";
 
     public static final String nggyu = "396307639669358598";
-    public static final String legmun = "691325469257367614";
+    public static final String legum = "397376055062560768";
+    public static final String docreg = "765284452679024660";
+
+    public enum s {idle,ringing,connected}
 
     static EchoHandler handler;
     static JDA jda;
@@ -56,162 +60,207 @@ public class dbb extends ListenerAdapter
     public static VoiceChannel fourdotvc;
     public static TextChannel fourdottextchannel;
 
-    public static boolean connected = false;
-    public static boolean ringing = false;
-
     public static final GpioController gpio = GpioFactory.getInstance();
 
-    //button for disconnecting, the one usually under the earpiece, i made the logic in setup_input_gpio/input00.setlistener for that
-    public static final GpioPinDigitalInput input00 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00);
+    public static String token;
 
-    public static final GpioPinDigitalOutput input01 = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_01);//buzzer for signaling incoming connnection
-    public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_02);//for calling user nggyu
-    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//for calling user legmun
+    public static s state = s.idle;
 
-    public static void main(String[] args) throws LoginException, InterruptedException {
+    public static void main(String[] args){
         if (args.length == 0)
         {
             System.err.println("Unable to start without token!");
             System.exit(1);
         }
-        String token = args[0];
+        token = args[0];
+        while(true){
+            System.out.print("internet?...");
+            try {
+                init();
+                break;
+            } catch (Exception e) {
+                System.out.println("nonexistent.");
+            }
+        }
+        initgpio();
 
-        // We only need 2 gateway intents enabled for this example:
-        EnumSet<GatewayIntent> intents = EnumSet.of(
-                // We need messages in guilds to accept commands from users
-                GatewayIntent.GUILD_MESSAGES,
-                GatewayIntent.DIRECT_MESSAGES,
-                // We need voice states to connect to the voice channel
-                GatewayIntent.GUILD_VOICE_STATES
-        );
-
-        // Start the JDA session with default mode (voice member cache)
-        jda = JDABuilder.createDefault(token, intents)         // Use provided token from command line arguments
-                .addEventListeners(new dbb())  // Start listening with this listener
-                .setActivity(Activity.listening("nikogo")) // Inform users that we are jammin' it out
-                .setStatus(OnlineStatus.ONLINE)     // Please don't disturb us while we're jammin'
-                .enableCache(CacheFlag.VOICE_STATE)         // Enable the VOICE_STATE cache to find a user's connected voice channel
-                .build();                                   // Login with these options
-        jda.awaitReady();
-        fourdotvc = jda.getVoiceChannelById(fourdotvcid);
-        fourdottextchannel = jda.getTextChannelById(fourdottextchannelid);
-
-        setup_input_gpio();
         System.out.println("ready");
     }
 
-    public static void setup_input_gpio() {
-        input00.addListener((GpioPinListenerDigital) event -> {
-            if(event.getState().isHigh() && connected) {
-                connected = false;
-                disconnectvc();
-            } else if(event.getState().isLow() && ringing){
-                ring(false);
-                connectvc();
-            }
-        });
-        input02.addListener((GpioPinListenerDigital) event -> {
-            if(event.getState().isHigh() && !connected){
-                connected = true;
-                callPerson(nggyu);
-            }
-        });
-        input03.addListener((GpioPinListenerDigital) event -> {
-            if(event.getState().isHigh() && !connected){
-                connected = true;
-                callPerson(legmun);
-            }
-        });
+    public static void init() throws LoginException, InterruptedException {
+        EnumSet<GatewayIntent> intents = EnumSet.of(
+                GatewayIntent.GUILD_MESSAGES,
+                GatewayIntent.DIRECT_MESSAGES,
+                GatewayIntent.GUILD_VOICE_STATES
+        );
+
+        jda = JDABuilder.createDefault(token, intents)
+                .addEventListeners(new dbb())
+                .setActivity(Activity.listening("nikogo"))
+                .setStatus(OnlineStatus.ONLINE)
+                .enableCache(CacheFlag.VOICE_STATE)
+                .build();
+
+        jda.awaitReady();
+
+        fourdotvc = jda.getVoiceChannelById(fourdotvcid);
+        fourdottextchannel = jda.getTextChannelById(fourdottextchannelid);
     }
 
-    public static void ring(boolean rink){
-        if(rink){
-            input01.setState(PinState.HIGH);
-        }else{
-            input01.setState(PinState.LOW);
-        }
-        ringing = rink;
+    //button for disconnecting, the one under the earpiece
+    public static final GpioPinDigitalInput input00 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00);
+
+    public static final GpioPinDigitalOutput input01 = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_02);//buzzer for signaling incoming connnection
+    public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//for calling legum
+    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);//for calling nggyu
+    public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05);//for calling docreg
+//    public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_21);
+//    public static final GpioPinDigitalInput input06 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_25);
+//    public static final GpioPinDigitalInput input07 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_27);
+
+    public static void initgpio() {
+        input00.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isHigh()) disconnectvc();
+            else connectvc();
+        });
+        input02.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isLow()) callPerson(legum);
+        });
+        input03.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isLow()) callPerson(nggyu);
+        });
+        input04.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isLow()) callPerson(docreg);
+        });
     }
 
     public static void callPerson(String userID){
-        connectvc();
-//        sendPM(userID, "halo");
-        String name = "halo";
+        String name = "halo ";
         try{
-            name += jda.getUserById(userID).getName();
+            User user = jda.retrieveUserById(userID).complete();
+            name+=user.getAsMention();
         }catch(NullPointerException ignored){}
-
-        announce(name);
-    }
-
-    public static void connectvc(){
-        connectTo(fourdotvc);
-        jda.getPresence().setActivity(Activity.listening(audioManager.getConnectedChannel().getMembers().get(0).getUser().getName()));
-    }
-
-    public static void disconnectvc(){
-        audioManager.closeAudioConnection();
-        handler.close();
-        handler = null;
-        jda.getPresence().setActivity(Activity.listening("nikogo"));
+        System.out.println(name+" "+userID);
+        fourdottextchannel.sendMessage(name).queue();
     }
 
     @Override
     public void onPrivateMessageReceived(PrivateMessageReceivedEvent event){
         if(event.getMessage().getContentRaw().toLowerCase().contains("halo")){
-            ring(true);
-        }
-    }
-
-    public static void sendPM(String userID, String message){
-        if(jda.getUserById(userID).hasPrivateChannel()){
-            jda.getPrivateChannelById(userID).sendMessage(message).queue();
-        }else{
-            jda.openPrivateChannelById(userID)
-                .flatMap(channel -> channel.sendMessage(message))
-                .queue();
-        }
-    }
-
-    public static void announce(String message){
-        if (fourdottextchannel.sendMessage(message).isEmpty()){
-            System.out.println("ERROR send msg:"+message);
+            System.out.println(event.getAuthor().getName()+"is calling");
+            input01.setState(PinState.HIGH);
+            state = s.ringing;
+            try {
+                for (int i=0;i<30;i++){
+                    input01.setState(PinState.HIGH);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.LOW);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.HIGH);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.LOW);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.HIGH);
+                    Thread.sleep(500);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.LOW);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                }
+                if (state==s.ringing) state=s.idle;
+            } catch (InterruptedException e) {
+                System.out.println("interrupted exception in private message received");
+            }
         }
     }
 
     @Override
-    public void onGuildVoiceLeave(GuildVoiceLeaveEvent event){
-        if(event.getChannelLeft().getId().equals(fourdotvcid) && ringing){
-            ring(false);
+    public void onGuildMessageReceived(@NotNull GuildMessageReceivedEvent event){
+        if (event.getAuthor().isBot()) return;
+        if (event.getMessage().getContentRaw().toLowerCase().contains("halo")){
+            System.out.println(event.getAuthor().getName()+" is calling");
+            input01.setState(PinState.HIGH);
+            state = s.ringing;
+            try {
+                for (int i=0;i<30;i++){
+                    input01.setState(PinState.HIGH);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.LOW);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.HIGH);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.LOW);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.HIGH);
+                    Thread.sleep(500);
+                    if (state!=s.ringing) break;
+                    input01.setState(PinState.LOW);
+                    Thread.sleep(100);
+                    if (state!=s.ringing) break;
+                }
+                if (state==s.ringing) state=s.idle;
+            } catch (InterruptedException e) {
+                System.out.println("interrupted exception in guild message received");
+            }
         }
     }
 
+//    public static void sendPM(String userID, String message){
+//        if(jda.retrieveUserById(userID).complete().hasPrivateChannel()){
+//            jda.getPrivateChannelById(userID).sendMessage(message).queue();
+//        }else{
+//            jda.openPrivateChannelById(userID)
+//                .flatMap(channel -> channel.sendMessage(message))
+//                .queue();
+//        }
+//    }
 
+    @Override
+    public void onGuildVoiceLeave(GuildVoiceLeaveEvent event){
+        if(event.getChannelLeft().getId().equals(fourdotvcid) && state==s.ringing){
+            input01.setState(PinState.LOW);
+            state=s.idle;
+        }
+    }
 
+    public static void disconnectvc(){
+        System.out.print("on hook, destroying...");
+        if (audioManager!=null) {
+            audioManager.closeAudioConnection();
+            audioManager=null;
+        }
+        if (handler!=null){
+            handler.close();
+            handler=null;
+        }
+        System.out.println("OK.");
+        jda.getPresence().setActivity(Activity.listening("nikogo"));
+        jda.getPresence().setStatus(OnlineStatus.ONLINE);
+        state = s.idle;
+    }
 
-    /**
-     * Connect to requested channel and start echo handler
-     *
-     * @param channel
-     *        The channel to connect to
-     */
-    private static void connectTo(VoiceChannel channel)
-    {
-        Guild guild = channel.getGuild();
-        // Get an audio manager for this guild, this will be created upon first use for each guild
+    public static void connectvc(){
+        Guild guild = fourdotvc.getGuild();
         audioManager = guild.getAudioManager();
-        // Create our Send/Receive handler for the audio connection
+        System.out.println("creating echo handler");
         handler = new EchoHandler();
-        System.out.println("echohandler somehow created");
-
-        // The order of the following instructions does not matter!
-
-        // Set the sending handler to our echo system
+        System.out.println("OK: echo handler somehow created");
         audioManager.setSendingHandler(handler);
-        // Set the receiving handler to the same echo system, otherwise we can't echo anything
         audioManager.setReceivingHandler(handler);
-        // Connect to the voice channel
-        audioManager.openAudioConnection(channel);
+        audioManager.openAudioConnection(fourdotvc);
+
+        jda.getPresence().setActivity(Activity.listening("kogos"));
+        jda.getPresence().setStatus(OnlineStatus.DO_NOT_DISTURB);
+        input01.setState(PinState.LOW);
+        state=s.connected;
     }
 
     public static class EchoHandler implements AudioSendHandler, AudioReceiveHandler
@@ -223,46 +272,33 @@ public class dbb extends ListenerAdapter
             The sender will provide 20ms of PCM stereo audio (mic) once requested by JDA
             When audio is provided JDA will automatically set the bot to speaking!
          */
-        private final Queue<byte[]> queue = new ConcurrentLinkedQueue<>();
         final AudioFormat receivedAudioFormat = AudioReceiveHandler.OUTPUT_FORMAT;
         final AudioFormat sentAudioFormat = AudioSendHandler.INPUT_FORMAT;
         SourceDataLine sourceDataLine = null;
         TargetDataLine targetDataLine = null;
         private final int packetSize = 3840;
         byte[] tempbuffer = new byte[packetSize];
-
+        byte[] recvbuffer = new byte[packetSize];
 
         public EchoHandler(){
             try{
                 sourceDataLine = AudioSystem.getSourceDataLine(receivedAudioFormat);
                 sourceDataLine.open();
-                System.out.println(sourceDataLine.getFormat());
                 sourceDataLine.start();
-                System.out.println(receivedAudioFormat);
-
-                System.out.println("and now for mic");
-
                 targetDataLine = AudioSystem.getTargetDataLine(sentAudioFormat);
                 targetDataLine.open(sentAudioFormat, packetSize);
-                System.out.println(targetDataLine.getFormat());
                 targetDataLine.start();
-                System.out.println("intialized audio devices?");
                 targetDataLine.read(tempbuffer, 0, tempbuffer.length);
-                System.out.println(sentAudioFormat);
-
-
-
             }
             catch(LineUnavailableException lue){
                 System.out.println("shit waded, wrong sourcedataline info or whatever");
                 lue.printStackTrace();
             }
-            System.out.println("lets goooo");
             if(sourceDataLine != null && targetDataLine != null){
-                System.out.println(sourceDataLine.getLineInfo());
-                System.out.println(targetDataLine.getLineInfo());
+                System.out.println("speaker: "+sourceDataLine.getLineInfo());
+                System.out.println("mic:     "+targetDataLine.getLineInfo());
             } else {
-                System.out.println("well shit");
+                System.err.println("well shit, this is really shit, audio devices are null");
             }
 
         }
@@ -272,39 +308,30 @@ public class dbb extends ListenerAdapter
         @Override // combine multiple user audio-streams into a single one
         public boolean canReceiveCombined()
         {
-            return true;//i pass anything i get into the audiosystem and let it sort it out with its own queues
+            return true;
         }
 
         @Override
-        public void handleCombinedAudio(CombinedAudio combinedAudio)
-        {
-            // we only want to send data when a user actually sent something, otherwise we would just send silence
-//            if (combinedAudio.getUsers().isEmpty())
-//                return;
-            // this is probably TODO, not sure
-
-            byte[] data = combinedAudio.getAudioData(1f); // volume at 100% = 1.0 (50% = 0.5 / 55% = 0.55)
-            sourceDataLine.write(data, 0, data.length);
+        public void handleCombinedAudio(CombinedAudio combinedAudio){
+            recvbuffer = combinedAudio.getAudioData(1f); // volume at 100% = 1.0 (50% = 0.5 / 55% = 0.55)
+            sourceDataLine.write(recvbuffer, 0, packetSize);
         }
 
         /* send handling */
 
         @Override
-        public boolean canProvide()
-        {
-            return true;//mic has continuous data so worst case it just waits a while i think
+        public boolean canProvide(){
+            return true;
         }
 
         @Override
-        public ByteBuffer provide20MsAudio()
-        {
+        public ByteBuffer provide20MsAudio(){
             targetDataLine.read(tempbuffer, 0, packetSize);//read 20ms audio to buffer
             return tempbuffer == null ? null : ByteBuffer.wrap(tempbuffer);//wrap and pass the buffer
         }
 
         @Override
-        public boolean isOpus()
-        {
+        public boolean isOpus(){
             // since we send audio that is received from discord we don't have opus but PCM
             return false;
         }
