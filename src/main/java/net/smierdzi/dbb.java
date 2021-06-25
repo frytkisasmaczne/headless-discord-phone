@@ -73,15 +73,15 @@ public class dbb extends ListenerAdapter
             System.exit(1);
         }
         token = args[0];
-        while(true){
-            System.out.print("internet?...");
-            try {
-                init();
-                break;
-            } catch (Exception e) {
-                System.out.println("nonexistent.");
-            }
+
+        System.out.print("internet?...");
+        try {
+            init();
+        } catch (Exception e) {
+            System.out.println("nonexistent.");
+            System.exit(1);
         }
+
         initgpio();
 
         System.out.println("ready");
