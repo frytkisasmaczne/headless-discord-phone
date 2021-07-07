@@ -111,12 +111,12 @@ public class dbb extends ListenerAdapter
     public static final GpioPinDigitalInput input00 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_00);
 
     public static final GpioPinDigitalOutput input01 = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_02);//buzzer for signaling incoming connnection
-    public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//for calling legum
-    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);//for calling nggyu
-    public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05);//for calling docreg
-//    public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_21);
-//    public static final GpioPinDigitalInput input06 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_25);
-//    public static final GpioPinDigitalInput input07 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_27);
+    public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//physical button number 1 for calling legum
+    public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);//2 for calling nggyu
+    public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05);//3 for calling docreg
+//    public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_21);//4
+//    public static final GpioPinDigitalInput input06 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_25);//5
+//    public static final GpioPinDigitalInput input07 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_27);//6
 
     public static void initgpio() {
         input00.addListener((GpioPinListenerDigital) event -> {
@@ -146,7 +146,7 @@ public class dbb extends ListenerAdapter
 
     @Override
     public void onPrivateMessageReceived(PrivateMessageReceivedEvent event){
-        if(event.getMessage().getContentRaw().toLowerCase().contains("halo")){
+        if(event.getMessage().getContentRaw().toLowerCase().contains("halo") && state==s.idle){
             System.out.println(event.getAuthor().getName()+"is calling");
             input01.setState(PinState.HIGH);
             state = s.ringing;
@@ -181,7 +181,7 @@ public class dbb extends ListenerAdapter
     @Override
     public void onGuildMessageReceived(@NotNull GuildMessageReceivedEvent event){
         if (event.getAuthor().isBot()) return;
-        if (event.getMessage().getContentRaw().toLowerCase().contains("halo")){
+        if (event.getMessage().getContentRaw().toLowerCase().contains("halo") && state==s.idle){
             System.out.println(event.getAuthor().getName()+" is calling");
             input01.setState(PinState.HIGH);
             state = s.ringing;
@@ -212,16 +212,6 @@ public class dbb extends ListenerAdapter
             }
         }
     }
-
-//    public static void sendPM(String userID, String message){
-//        if(jda.retrieveUserById(userID).complete().hasPrivateChannel()){
-//            jda.getPrivateChannelById(userID).sendMessage(message).queue();
-//        }else{
-//            jda.openPrivateChannelById(userID)
-//                .flatMap(channel -> channel.sendMessage(message))
-//                .queue();
-//        }
-//    }
 
     @Override
     public void onGuildVoiceLeave(GuildVoiceLeaveEvent event){
