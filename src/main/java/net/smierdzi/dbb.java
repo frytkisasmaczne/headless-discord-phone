@@ -50,6 +50,8 @@ public class dbb extends ListenerAdapter
     public static final String nggyu = "396307639669358598";
     public static final String legum = "397376055062560768";
     public static final String docreg = "765284452679024660";
+    public static final String sergiusz = "811159413741584386";
+
 
     public enum s {idle,ringing,connected}
 
@@ -114,7 +116,7 @@ public class dbb extends ListenerAdapter
     public static final GpioPinDigitalInput input02 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_03);//physical button number 1 for calling legum
     public static final GpioPinDigitalInput input03 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04);//2 for calling nggyu
     public static final GpioPinDigitalInput input04 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05);//3 for calling docreg
-//    public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_21);//4
+    public static final GpioPinDigitalInput input05 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_21);//4 for calling sergiusz
 //    public static final GpioPinDigitalInput input06 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_25);//5
 //    public static final GpioPinDigitalInput input07 = gpio.provisionDigitalInputPin(RaspiPin.GPIO_27);//6
 
@@ -131,6 +133,9 @@ public class dbb extends ListenerAdapter
         });
         input04.addListener((GpioPinListenerDigital) event -> {
             if(event.getState().isLow()) callPerson(docreg);
+        });
+        input05.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isLow()) callPerson(sergiusz);
         });
     }
 
