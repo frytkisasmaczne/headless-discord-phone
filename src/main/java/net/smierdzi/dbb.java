@@ -134,9 +134,9 @@ public class dbb extends ListenerAdapter
         input04.addListener((GpioPinListenerDigital) event -> {
             if(event.getState().isLow()) callPerson(docreg);
         });
-//        input05.addListener((GpioPinListenerDigital) event -> {
-//            if(event.getState().isLow()) callPerson(sergiusz);
-//        });
+        input05.addListener((GpioPinListenerDigital) event -> {
+            if(event.getState().isLow()) callPerson(sergiusz);
+        });
         input06.addListener((GpioPinListenerDigital) event -> {
             if(event.getState().isLow()) callPerson(sergiusz);
         });
